@@ -1,8 +1,8 @@
 /*
  * Arquivo: spaceinv.c
- * Descrição: Ponto de entrada (Main) do jogo Space Invaders.
- * Gerencia a máquina de estados principal: Menu -> Jogo -> Game Over/Win.
- * Plataforma: HF-RISC SoC (FPGA)
+ * Feito por: Eduardo Pietro, Gabriel Woltmann e Natan Oliveira
+ * Descrição: Loop Principal do Jogo.
+ * Gerencia FSM: Menu -> Jogo -> Game Over/Win.
  */
 
 #include <hf-risc.h>
