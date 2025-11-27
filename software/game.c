@@ -13,7 +13,6 @@ struct object_s shields[NUM_SHIELDS];
 struct object_s ufo;
 
 int score = 0;
-int last_score = -1; 
 int alien_dx = 3;
 int move_timer = 0;
 int move_threshold = 15;
@@ -21,46 +20,6 @@ unsigned int rng_seed = 123;
 
 #define ROWS 4
 #define COLS 6
-
-// Posição do Placar (Mudei para a direita para não bater no outro score)
-#define SCORE_X 220
-#define SCORE_Y 5
-
-// --- Funções Auxiliares de Texto (Manuais) ---
-
-void int_to_str(int value, char *str) {
-    char temp[10];
-    int i = 0;
-    
-    if (value == 0) {
-        str[0] = '0';
-        str[1] = '\0';
-        return;
-    }
-
-    while (value > 0) {
-        temp[i++] = (value % 10) + '0';
-        value /= 10;
-    }
-
-    int j = 0;
-    while (i > 0) {
-        str[j++] = temp[--i];
-    }
-    str[j] = '\0';
-}
-
-void format_score_string(char *buffer, int val) {
-    // Usando "PTS" para ser diferente do outro score que pode estar na tela
-    char *prefix = "PTS: ";
-    int i = 0;
-    while(prefix[i] != '\0') {
-        buffer[i] = prefix[i];
-        i++;
-    }
-    int_to_str(val, &buffer[i]);
-}
-// ---------------------------------------------
 
 int simple_rand() {
     rng_seed = rng_seed * 1103515245 + 12345;
@@ -207,25 +166,10 @@ void init_game(void) {
     init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
     ufo.active = 0;
     score = 0;
-    last_score = -1; 
 }
 
 void update_game(void) {
-    char score_buf[25];
-    
-    // --- CORREÇÃO DO SCORE ---
-    if (score != last_score) {
-        // 1. Movemos para a direita (X=220) para fugir do outro score
-        // 2. Desenhamos um retângulo "fake" de espaços pretos para limpar o fundo
-        display_print("PTS:         ", SCORE_X, SCORE_Y, 1, BLACK); 
-        
-        // 3. Desenhamos o novo valor
-        format_score_string(score_buf, score);
-        display_print(score_buf, SCORE_X, SCORE_Y, 1, WHITE);
-        
-        last_score = score;
-    }
-
+    // Game Over Lógica
     if (!player.active) {
          display_print("GAME OVER", 110, 100, 1, RED);
          while(1); 
@@ -252,6 +196,7 @@ void update_game(void) {
         move_timer = 0;
         int drop = 0;
         
+        // Contagem para dificuldade
         int active_count = 0;
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
@@ -267,7 +212,7 @@ void update_game(void) {
                 draw_object(&aliens[i], 0, BLACK);
         }
 
-        // Move
+        // Movimento
         if (drop) {
             alien_dx = -alien_dx;
             for (int i = 0; i < NUM_ALIENS; i++) {
@@ -280,10 +225,10 @@ void update_game(void) {
             }
         }
         
-        // Desenha e IA de Tiro
-        int fire_chance = 2; 
-        if (active_count < 10) fire_chance = 8;  
-        if (active_count < 4)  fire_chance = 18; 
+        // Desenha e IA de Tiro (DIFICULDADE)
+        int fire_chance = 2; // Base
+        if (active_count < 10) fire_chance = 8;  // Agressivo
+        if (active_count < 4)  fire_chance = 18; // Insano
 
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
@@ -341,7 +286,7 @@ void update_game(void) {
         }
     }
 
-    // Game Over
+    // Colisão Bombas vs Player
     for (int b = 0; b < MAX_BOMBS; b++) {
         if (bombs[b].active) {
             if (detect_collision(&bombs[b], &player)) {
