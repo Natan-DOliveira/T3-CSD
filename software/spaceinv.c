@@ -2,6 +2,7 @@
 #include "vga_drv.h"
 #include "game.h"
 #include "keyboard.h"
+#include "graphics.h" // <--- ADICIONADO: Necessário para init_display
 
 // Função manual para converter int para string (substitui sprintf)
 void int_to_str_main(int value, char *str) {
@@ -69,7 +70,7 @@ int main(void) {
     }
     // -----------------------------
 
-    // 2. Agora sim inicia o jogo real (Isso vai limpar a tela do menu)
+    // 2. Agora sim inicia o jogo real (Isso vai limpar a tela do menu internamente)
     init_game();
     draw_game();
 
