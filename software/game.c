@@ -1,4 +1,5 @@
 #include <hf-risc.h>
+#include <stdio.h>  // Necessário para sprintf (formatar o score)
 #include "vga_drv.h"
 #include "game.h"
 #include "graphics.h"  
@@ -13,6 +14,7 @@ struct object_s shields[NUM_SHIELDS];
 struct object_s ufo;
 
 int score = 0;
+int last_score = -1; // Para controlar quando atualizar o texto
 int alien_dx = 3;
 int move_timer = 0;
 int move_threshold = 15;
@@ -131,7 +133,6 @@ void move_object(struct object_s *obj) {
 
 // Detecção de colisão AABB
 int detect_collision(struct object_s *obj1, struct object_s *obj2) {
-    // Objetos morrendo não colidem
     if (!obj1->active || obj1->dying_timer > 0 || !obj2->active || obj2->dying_timer > 0) return 0;
     
     return (obj1->x < obj2->x + obj2->w &&
@@ -180,9 +181,25 @@ void init_game(void) {
     init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
     ufo.active = 0;
     score = 0;
+    last_score = -1; // Força redesenho do score
 }
 
 void update_game(void) {
+    char score_buf[20];
+    
+    // --- CORREÇÃO 1: Score Legível ---
+    if (score != last_score) {
+        // Passo A: Limpa a área do score pintando um texto de espaços em preto
+        // Ajuste o número de espaços se seu score ficar muito grande
+        display_print("SCORE:       ", 5, 5, 1, BLACK); 
+        
+        // Passo B: Escreve o novo score em branco
+        sprintf(score_buf, "SCORE: %d", score);
+        display_print(score_buf, 5, 5, 1, WHITE);
+        
+        last_score = score;
+    }
+
     if (!player.active) {
          display_print("GAME OVER", 110, 100, 1, RED);
          while(1); 
@@ -203,60 +220,62 @@ void update_game(void) {
     }
     move_object(&bullet);
 
-    // Aliens (Movimento em Grupo)
+    // Aliens (Movimento em Grupo e IA de Tiro)
     move_timer++;
     if (move_timer > move_threshold) {
         move_timer = 0;
         int drop = 0;
         
-        // Verifica se precisa descer (baseado apenas nos aliens VIVOS e NORMAIS)
+        // Conta quantos inimigos estão vivos para ajustar dificuldade
+        int active_count = 0;
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
+                active_count++;
+                // Verifica limites laterais
                 if ((alien_dx > 0 && aliens[i].x > SCREEN_W - 20) || 
                     (alien_dx < 0 && aliens[i].x < 5)) drop = 1;
             }
         }
         
-        // Apaga rastros ANTES de mover (Só apaga quem está vivo e se movendo)
-        // Quem está explodindo é gerenciado pelo move_object
+        // Apaga rastros
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) 
                 draw_object(&aliens[i], 0, BLACK);
         }
 
-        // --- MOVIMENTO CORRIGIDO ---
+        // Movimento
         if (drop) {
             alien_dx = -alien_dx;
             for (int i = 0; i < NUM_ALIENS; i++) {
-                // Se o grupo desce, TODOS os ativos descem (vivos e explodindo).
-                // Isso mantém a grade alinhada e evita sobreposição gráfica.
-                if (aliens[i].active)
-                    aliens[i].y += 6;
+                if (aliens[i].active) aliens[i].y += 6;
             }
         } else {
             for (int i = 0; i < NUM_ALIENS; i++) {
-                // Se o grupo vai para o lado, APENAS os vivos se movem.
-                // A explosão fica onde aconteceu.
                 if (aliens[i].active && aliens[i].dying_timer == 0)
                     aliens[i].x += alien_dx;
             }
         }
-        // ---------------------------
         
-        // Desenha (Apenas quem está vivo e normal)
-        // Explosões são desenhadas no loop de 'move_object' abaixo
-        for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && aliens[i].dying_timer == 0) 
-                draw_object(&aliens[i], 1, -1);
-        }
+        // Desenha e Lógica de Tiro
+        
+        // --- CORREÇÃO 2: Dificuldade Progressiva ---
+        // Quanto menos aliens, maior a chance de cada um atirar.
+        int fire_chance = 2; // Padrão: 2%
+        if (active_count < 10) fire_chance = 6;  // Fica mais agressivo
+        if (active_count < 3)  fire_chance = 15; // Muito agressivo no final
+        // -------------------------------------------
 
-        // Ataque Alien
         for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && aliens[i].dying_timer == 0 && (simple_rand() % 100 < 2)) {
-                for (int b = 0; b < MAX_BOMBS; b++) {
-                    if (!bombs[b].active) {
-                        init_object(&bombs[b], NULL, NULL, NULL, 3, 5, aliens[i].x + 4, aliens[i].y + 8, 0, 4, 1, 1, 6, 0);
-                        break;
+            if (aliens[i].active && aliens[i].dying_timer == 0) {
+                draw_object(&aliens[i], 1, -1);
+                
+                // Tenta atirar
+                if (simple_rand() % 100 < fire_chance) {
+                    for (int b = 0; b < MAX_BOMBS; b++) {
+                        if (!bombs[b].active) {
+                            init_object(&bombs[b], NULL, NULL, NULL, 3, 5, aliens[i].x + 4, aliens[i].y + 8, 0, 4, 1, 1, 6, 0);
+                            break;
+                        }
                     }
                 }
             }
@@ -265,7 +284,6 @@ void update_game(void) {
 
     // Processa animações de explosão (Aliens) e movimento de bombas
     for (int i = 0; i < NUM_ALIENS; i++) {
-        // Se está explodindo, chamamos move_object para atualizar timer e limpar
         if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
     }
     for (int i = 0; i < MAX_BOMBS; i++) move_object(&bombs[i]);
@@ -285,8 +303,8 @@ void update_game(void) {
                 draw_object(&bullet, 0, BLACK);
                 bullet.active = 0;
                 
-                draw_object(&aliens[i], 0, BLACK); // Apaga alien original
-                aliens[i].dying_timer = 5;         // Inicia explosão no lugar
+                draw_object(&aliens[i], 0, BLACK); 
+                aliens[i].dying_timer = 5;         
             }
         }
         if (ufo.active && detect_collision(&bullet, &ufo)) {
