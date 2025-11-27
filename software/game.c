@@ -169,9 +169,8 @@ void init_game(void) {
 }
 
 void update_game(void) {
-    // Game Over Lógica Final (Trava o jogo quando a explosão termina)
+    // Game Over Lógica Final
     if (!player.active) {
-         // Mantemos aqui por segurança caso o primeiro print tenha sido sobrescrito
          display_print("GAME OVER", 110, 100, 1, RED);
          while(1); 
     }
@@ -191,67 +190,76 @@ void update_game(void) {
     }
     move_object(&bullet);
 
-    // Aliens e IA
-    move_timer++;
-    if (move_timer > move_threshold) {
-        move_timer = 0;
-        int drop = 0;
+    // --- CORREÇÃO: Só processa movimento dos inimigos se o player NÃO estiver morrendo ---
+    if (player.dying_timer == 0) {
         
-        int active_count = 0;
-        for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && aliens[i].dying_timer == 0) {
-                active_count++;
-                if ((alien_dx > 0 && aliens[i].x > SCREEN_W - 20) || 
-                    (alien_dx < 0 && aliens[i].x < 5)) drop = 1;
-            }
-        }
-        
-        for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && aliens[i].dying_timer == 0) 
-                draw_object(&aliens[i], 0, BLACK);
-        }
-
-        if (drop) {
-            alien_dx = -alien_dx;
+        // Aliens e IA
+        move_timer++;
+        if (move_timer > move_threshold) {
+            move_timer = 0;
+            int drop = 0;
+            
+            int active_count = 0;
             for (int i = 0; i < NUM_ALIENS; i++) {
-                if (aliens[i].active) aliens[i].y += 6;
+                if (aliens[i].active && aliens[i].dying_timer == 0) {
+                    active_count++;
+                    if ((alien_dx > 0 && aliens[i].x > SCREEN_W - 20) || 
+                        (alien_dx < 0 && aliens[i].x < 5)) drop = 1;
+                }
             }
-        } else {
+            
             for (int i = 0; i < NUM_ALIENS; i++) {
-                if (aliens[i].active && aliens[i].dying_timer == 0)
-                    aliens[i].x += alien_dx;
+                if (aliens[i].active && aliens[i].dying_timer == 0) 
+                    draw_object(&aliens[i], 0, BLACK);
             }
-        }
-        
-        int fire_chance = 2; 
-        if (active_count < 10) fire_chance = 8;  
-        if (active_count < 4)  fire_chance = 18; 
 
-        for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && aliens[i].dying_timer == 0) {
-                draw_object(&aliens[i], 1, -1);
-                
-                if (simple_rand() % 100 < fire_chance) {
-                    for (int b = 0; b < MAX_BOMBS; b++) {
-                        if (!bombs[b].active) {
-                            init_object(&bombs[b], NULL, NULL, NULL, 3, 5, aliens[i].x + 4, aliens[i].y + 8, 0, 4, 1, 1, 6, 0);
-                            break;
+            if (drop) {
+                alien_dx = -alien_dx;
+                for (int i = 0; i < NUM_ALIENS; i++) {
+                    if (aliens[i].active) aliens[i].y += 6;
+                }
+            } else {
+                for (int i = 0; i < NUM_ALIENS; i++) {
+                    if (aliens[i].active && aliens[i].dying_timer == 0)
+                        aliens[i].x += alien_dx;
+                }
+            }
+            
+            int fire_chance = 2; 
+            if (active_count < 10) fire_chance = 8;  
+            if (active_count < 4)  fire_chance = 18; 
+
+            for (int i = 0; i < NUM_ALIENS; i++) {
+                if (aliens[i].active && aliens[i].dying_timer == 0) {
+                    draw_object(&aliens[i], 1, -1);
+                    
+                    if (simple_rand() % 100 < fire_chance) {
+                        for (int b = 0; b < MAX_BOMBS; b++) {
+                            if (!bombs[b].active) {
+                                init_object(&bombs[b], NULL, NULL, NULL, 3, 5, aliens[i].x + 4, aliens[i].y + 8, 0, 4, 1, 1, 6, 0);
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
-    }
+    } // Fim do if(player.dying_timer == 0)
 
+    // Processa Explosões (Esses devem continuar rodando)
     for (int i = 0; i < NUM_ALIENS; i++) {
         if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
     }
+    // As bombas continuam caindo (opção estética, se quiser que parem, coloque no if acima)
     for (int i = 0; i < MAX_BOMBS; i++) move_object(&bombs[i]);
 
-    if (!ufo.active && (simple_rand() % 500 == 0)) {
-        init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
+    // UFO - Também congela se o player estiver morrendo
+    if (player.dying_timer == 0) {
+        if (!ufo.active && (simple_rand() % 500 == 0)) {
+            init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
+        }
+        move_object(&ufo);
     }
-    move_object(&ufo);
 
     // Colisões
     if (bullet.active) {
@@ -279,7 +287,7 @@ void update_game(void) {
         }
     }
 
-    // Colisão Bombas vs Player (AQUI ESTA A MUDANCA)
+    // Colisão Bombas vs Player
     for (int b = 0; b < MAX_BOMBS; b++) {
         if (bombs[b].active) {
             if (detect_collision(&bombs[b], &player)) {
@@ -288,10 +296,9 @@ void update_game(void) {
                 draw_object(&player, 0, BLACK);
                 player.dying_timer = 50; 
                 
-                // --- MUDANÇA: Desenha GAME OVER IMEDIATAMENTE ---
-                display_frectangle(110, 95, 80, 20, BLACK); // Limpa fundo do texto
-                display_print("GAME OVER", 110, 100, 1, RED); // Escreve na hora
-                // ------------------------------------------------
+                // Desenha GAME OVER IMEDIATAMENTE e congela inimigos no próximo frame
+                display_frectangle(110, 95, 80, 20, BLACK); 
+                display_print("GAME OVER", 110, 100, 1, RED); 
             }
             for (int s = 0; s < NUM_SHIELDS; s++) {
                 if (shields[s].active && detect_collision(&bombs[b], &shields[s])) {
