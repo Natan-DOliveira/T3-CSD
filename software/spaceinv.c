@@ -27,6 +27,49 @@ void int_to_str_main(int value, char *str) {
 }
 
 int main(void) {
+    // 1. Inicializa o vídeo apenas para mostrar o menu
+    init_display(); 
+
+    // --- TELA DE MENU INICIAL ---
+    int blink_timer = 0;
+    int show_text = 1;
+
+    // Loop do Menu (Fica aqui até apertar espaço)
+    while (1) {
+        // Desenha o Título (Fixo)
+        display_print("MENU INICIAL", 100, 80, 1, GREEN);
+
+        // Lógica para piscar o texto de baixo
+        blink_timer++;
+        if (blink_timer > 300) { // Velocidade do pisca
+            show_text = !show_text;
+            blink_timer = 0;
+            
+            // Se for para esconder, desenha um retângulo preto em cima
+            if (!show_text) {
+                display_frectangle(40, 120, 240, 10, BLACK);
+            }
+        }
+
+        // Desenha a instrução se for o momento visível
+        if (show_text) {
+            display_print("APERTE ESPACO PARA COMECAR", 45, 120, 1, WHITE);
+        }
+
+        // Verifica teclado
+        check_keyboard();
+        
+        // Se apertou ESPAÇO, sai do menu e começa o jogo
+        if (key_fire) {
+            key_fire = 0; // Reseta para não dar um tiro logo no começo
+            break;
+        }
+
+        delay_ms(1);
+    }
+    // -----------------------------
+
+    // 2. Agora sim inicia o jogo real (Isso vai limpar a tela do menu)
     init_game();
     draw_game();
 
@@ -39,24 +82,19 @@ int main(void) {
         if (score != last_score) {
             char score_str[32];
             
-            // --- CORREÇÃO DEFINITIVA DO SCORE ---
-            // Em vez de imprimir espaços, desenhamos um retângulo preto sólido.
-            // Posição (10, 5), Largura 100 pixels, Altura 10 pixels.
-            // Isso garante que QUALQUER coisa escrita antes seja apagada.
+            // Limpa a área do score anterior
             display_frectangle(10, 5, 100, 10, BLACK);
 
-            // Monta a string "Score: <numero>"
+            // Monta a string
             char *prefix = "Score: ";
             int k = 0;
             while(prefix[k] != '\0') {
                 score_str[k] = prefix[k];
                 k++;
             }
-            
-            // Converte o número e anexa
             int_to_str_main(score, &score_str[k]);
 
-            // Escreve o novo score limpo em BRANCO
+            // Escreve o novo score
             display_print(score_str, 10, 5, 1, WHITE);
             
             last_score = score;
@@ -69,7 +107,6 @@ int main(void) {
         }
         
         if (aliens_alive == 0) {
-            // Limpa um espaço para a mensagem de vitória também
             display_frectangle(110, 95, 80, 20, BLACK);
             display_print("YOU WIN", 120, 100, 1, GREEN);
             while(1);
