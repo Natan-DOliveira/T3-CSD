@@ -169,10 +169,10 @@ void init_game(void) {
 }
 
 void update_game(void) {
-    // Game Over Lógica Final
+    // --- MUDANÇA: Se o player morreu completamente (active=0), apenas retorna.
+    // O main vai cuidar de reiniciar. Não travamos mais num while(1).
     if (!player.active) {
-         display_print("GAME OVER", 110, 100, 1, RED);
-         while(1); 
+         return; 
     }
 
     // Player
@@ -190,10 +190,8 @@ void update_game(void) {
     }
     move_object(&bullet);
 
-    // --- CORREÇÃO: Só processa movimento dos inimigos se o player NÃO estiver morrendo ---
+    // Movimento Inimigo (Congela se player estiver explodindo)
     if (player.dying_timer == 0) {
-        
-        // Aliens e IA
         move_timer++;
         if (move_timer > move_threshold) {
             move_timer = 0;
@@ -244,16 +242,15 @@ void update_game(void) {
                 }
             }
         }
-    } // Fim do if(player.dying_timer == 0)
+    } 
 
-    // Processa Explosões (Esses devem continuar rodando)
+    // Processa Explosões
     for (int i = 0; i < NUM_ALIENS; i++) {
         if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
     }
-    // As bombas continuam caindo (opção estética, se quiser que parem, coloque no if acima)
     for (int i = 0; i < MAX_BOMBS; i++) move_object(&bombs[i]);
 
-    // UFO - Também congela se o player estiver morrendo
+    // UFO
     if (player.dying_timer == 0) {
         if (!ufo.active && (simple_rand() % 500 == 0)) {
             init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
@@ -296,7 +293,7 @@ void update_game(void) {
                 draw_object(&player, 0, BLACK);
                 player.dying_timer = 50; 
                 
-                // Desenha GAME OVER IMEDIATAMENTE e congela inimigos no próximo frame
+                // GAME OVER IMEDIATO
                 display_frectangle(110, 95, 80, 20, BLACK); 
                 display_print("GAME OVER", 110, 100, 1, RED); 
             }
