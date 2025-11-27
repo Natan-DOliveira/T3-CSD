@@ -129,7 +129,7 @@ int detect_collision(struct object_s *obj1, struct object_s *obj2) {
 void draw_game(void) {
     draw_object(&player, 0, -1);
     for (int i = 0; i < NUM_ALIENS; i++) draw_object(&aliens[i], 0, -1);
-    for (int i = 0; i < NUM_SHIELDS; i++) draw_object(&shields[i], 0, GREEN);
+    for (int i = 0; i < NUM_SHIELDS; i++) draw_object(&shields[i], 0, -1);
     draw_object(&bullet, 0, WHITE);
     for (int i = 0; i < MAX_BOMBS; i++) draw_object(&bombs[i], 0, WHITE);
     draw_object(&ufo, 0, RED);
