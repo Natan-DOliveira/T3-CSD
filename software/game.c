@@ -169,8 +169,9 @@ void init_game(void) {
 }
 
 void update_game(void) {
-    // Game Over Lógica
+    // Game Over Lógica Final (Trava o jogo quando a explosão termina)
     if (!player.active) {
+         // Mantemos aqui por segurança caso o primeiro print tenha sido sobrescrito
          display_print("GAME OVER", 110, 100, 1, RED);
          while(1); 
     }
@@ -196,7 +197,6 @@ void update_game(void) {
         move_timer = 0;
         int drop = 0;
         
-        // Contagem para dificuldade
         int active_count = 0;
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
@@ -206,13 +206,11 @@ void update_game(void) {
             }
         }
         
-        // Limpa rastro
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) 
                 draw_object(&aliens[i], 0, BLACK);
         }
 
-        // Movimento
         if (drop) {
             alien_dx = -alien_dx;
             for (int i = 0; i < NUM_ALIENS; i++) {
@@ -225,10 +223,9 @@ void update_game(void) {
             }
         }
         
-        // Desenha e IA de Tiro (DIFICULDADE)
-        int fire_chance = 2; // Base
-        if (active_count < 10) fire_chance = 8;  // Agressivo
-        if (active_count < 4)  fire_chance = 18; // Insano
+        int fire_chance = 2; 
+        if (active_count < 10) fire_chance = 8;  
+        if (active_count < 4)  fire_chance = 18; 
 
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
@@ -246,13 +243,11 @@ void update_game(void) {
         }
     }
 
-    // Processa Explosões e Bombas
     for (int i = 0; i < NUM_ALIENS; i++) {
         if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
     }
     for (int i = 0; i < MAX_BOMBS; i++) move_object(&bombs[i]);
 
-    // UFO
     if (!ufo.active && (simple_rand() % 500 == 0)) {
         init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
     }
@@ -263,10 +258,8 @@ void update_game(void) {
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (detect_collision(&bullet, &aliens[i])) { 
                 score += aliens[i].points;
-                
                 draw_object(&bullet, 0, BLACK);
                 bullet.active = 0;
-                
                 draw_object(&aliens[i], 0, BLACK); 
                 aliens[i].dying_timer = 5;         
             }
@@ -286,7 +279,7 @@ void update_game(void) {
         }
     }
 
-    // Colisão Bombas vs Player
+    // Colisão Bombas vs Player (AQUI ESTA A MUDANCA)
     for (int b = 0; b < MAX_BOMBS; b++) {
         if (bombs[b].active) {
             if (detect_collision(&bombs[b], &player)) {
@@ -294,6 +287,11 @@ void update_game(void) {
                 bombs[b].active = 0;
                 draw_object(&player, 0, BLACK);
                 player.dying_timer = 50; 
+                
+                // --- MUDANÇA: Desenha GAME OVER IMEDIATAMENTE ---
+                display_frectangle(110, 95, 80, 20, BLACK); // Limpa fundo do texto
+                display_print("GAME OVER", 110, 100, 1, RED); // Escreve na hora
+                // ------------------------------------------------
             }
             for (int s = 0; s < NUM_SHIELDS; s++) {
                 if (shields[s].active && detect_collision(&bombs[b], &shields[s])) {
