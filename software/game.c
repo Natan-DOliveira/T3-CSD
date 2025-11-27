@@ -44,27 +44,55 @@ void init_object(struct object_s *obj, char *frame1, char *frame2, char *frame3,
     obj->dying_timer = 0;
 }
 
-// Desenha objeto com animação
+// Desenha objeto com animação e tratamento de explosão
 void draw_object(struct object_s *obj, int chg, int color) {
     if (obj->active) {
-        if (chg) {
-            obj->cursprite = (obj->cursprite + 1) % obj->num_frames;
-        }
-        char *spr = obj->sprite_frame[obj->cursprite];
-        int ww = obj->w, hh = obj->h;
+        char *spr;
+        int ww = obj->w;
+        int hh = obj->h;
 
+        // Lógica de Explosão (Se dying_timer > 0, troca o sprite)
         if (obj->dying_timer > 0) {
-            // Se estiver morrendo, usa cor sólida ou sprite de explosão se tiver
-            color = (color == BLACK) ? BLACK : RED; 
+            if (obj->type == 0) { // Player
+                spr = (char *)explosion_player_spr;
+                ww = 15; hh = 8;
+            } else { // Aliens e UFO
+                spr = (char *)explosion_inv_spr;
+                ww = 13; hh = 7;
+            }
+            // Força cor de explosão se não for comando de apagar (BLACK)
+            if (color != BLACK) color = (obj->type == 0) ? GREEN : RED;
+        } else {
+            // Desenho normal
+            if (chg) {
+                obj->cursprite = (obj->cursprite + 1) % obj->num_frames;
+            }
+            spr = obj->sprite_frame[obj->cursprite];
         }
         
         draw_sprite(obj->x, obj->y, spr, ww, hh, color);
     }
 }
 
-// Move objeto, limpa rastro e redesenha
+// Move objeto, gerencia explosão e redesenha
 void move_object(struct object_s *obj) {
     if (!obj->active) return;
+
+    // Se estiver explodindo, não move, apenas gerencia o timer
+    if (obj->dying_timer > 0) {
+        obj->dying_timer--;
+        if (obj->dying_timer == 0) {
+            // O timer acabou: hack para draw_object saber que tem que apagar a explosão
+            obj->dying_timer = 1; 
+            draw_object(obj, 0, BLACK); // Apaga o sprite de explosão
+            obj->dying_timer = 0;
+            obj->active = 0; // Desativa totalmente
+        } else {
+            // Ainda explodindo: redesenha para garantir visibilidade (efeito piscante opcional)
+            draw_object(obj, 0, -1);
+        }
+        return; // Retorna cedo para não processar movimento X/Y
+    }
 
     struct object_s oldobj = *obj; 
     int moved = 0;
@@ -92,24 +120,26 @@ void move_object(struct object_s *obj) {
         if (obj->y > 218) obj->active = 0;
     }
 
-    if (moved || obj->dying_timer > 0) {
-        draw_object(&oldobj, 0, BLACK); // Apaga
+    if (moved) {
+        draw_object(&oldobj, 0, BLACK); // Apaga anterior
         if (obj->active) {
-            draw_object(obj, 1, -1); // Desenha novo (Multicolorido)
+            draw_object(obj, 1, -1); // Desenha novo
         }
     }
 }
 
 // Detecção de colisão AABB
 int detect_collision(struct object_s *obj1, struct object_s *obj2) {
-    if (!obj1->active || !obj2->active) return 0;
+    // Se estiver morrendo (dying), não colide mais
+    if (!obj1->active || obj1->dying_timer > 0 || !obj2->active || obj2->dying_timer > 0) return 0;
+    
+    // Ajuste fino: para explosões, a caixa de colisão pode mudar, mas usamos a original aqui
     return (obj1->x < obj2->x + obj2->w &&
             obj1->x + obj1->w > obj2->x &&
             obj1->y < obj2->y + obj2->h &&
             obj1->y + obj1->h > obj2->y);
 }
 
-// Função que desenha o estado inicial completo
 void draw_game(void) {
     draw_object(&player, 0, -1);
     for (int i = 0; i < NUM_ALIENS; i++) draw_object(&aliens[i], 0, -1);
@@ -133,7 +163,9 @@ void init_game(void) {
             char *fra = (type == 3) ? (char *)alien3a_spr : (type == 2) ? (char *)alien2a_spr : (char *)alien1a_spr;
             char *frb = (type == 3) ? (char *)alien3b_spr : (type == 2) ? (char *)alien2b_spr : (char *)alien1b_spr;
             int w = (type == 3) ? 12 : (type == 2) ? 11 : 8;
-            init_object(&aliens[idx], fra, frb, NULL, w, 8, 20 + c * 40, 25 + r * 12, 0, 0, 10, 10, type, (4 - type) * 10);
+            // Correção de pontos: Type 3 (Top) = 30, Type 2 = 20, Type 1 = 10
+            int pts = (type == 3) ? 30 : (type == 2) ? 20 : 10;
+            init_object(&aliens[idx], fra, frb, NULL, w, 8, 20 + c * 40, 25 + r * 12, 0, 0, 10, 10, type, pts);
         }
     }
 
@@ -156,14 +188,22 @@ void init_game(void) {
 }
 
 void update_game(void) {
-    // Player Input
+    // Se o player morreu completamente (acabou a animação), Fim de Jogo
+    if (!player.active) {
+         display_print("GAME OVER", 110, 100, 1, RED);
+         while(1); 
+    }
+
+    // Player Input (Só move se não estiver explodindo)
     player.dx = 0;
-    if (key_left) player.dx = -2;
-    if (key_right) player.dx = 2;
+    if (player.dying_timer == 0) {
+        if (key_left) player.dx = -2;
+        if (key_right) player.dx = 2;
+    }
     move_object(&player); 
 
     // Tiro
-    if (key_fire && !bullet.active) {
+    if (key_fire && !bullet.active && player.dying_timer == 0) {
         init_object(&bullet, NULL, NULL, NULL, 2, 4, player.x + 6, player.y - 4, 0, -5, 1, 1, 5, 0);
         key_fire = 0; 
     }
@@ -175,13 +215,17 @@ void update_game(void) {
         move_timer = 0;
         int drop = 0;
         for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active) {
+            if (aliens[i].active && aliens[i].dying_timer == 0) {
                 if ((alien_dx > 0 && aliens[i].x > SCREEN_W - 20) || 
                     (alien_dx < 0 && aliens[i].x < 5)) drop = 1;
             }
         }
-        // Apaga todos antes de mover em bloco
-        for (int i = 0; i < NUM_ALIENS; i++) if (aliens[i].active) draw_object(&aliens[i], 0, BLACK);
+        
+        // Redesenho em bloco (apaga apenas quem está vivo e não explodindo)
+        for (int i = 0; i < NUM_ALIENS; i++) {
+            if (aliens[i].active && aliens[i].dying_timer == 0) 
+                draw_object(&aliens[i], 0, BLACK);
+        }
 
         if (drop) {
             alien_dx = -alien_dx;
@@ -190,12 +234,15 @@ void update_game(void) {
             for (int i = 0; i < NUM_ALIENS; i++) aliens[i].x += alien_dx;
         }
         
-        // Desenha
-        for (int i = 0; i < NUM_ALIENS; i++) if (aliens[i].active) draw_object(&aliens[i], 1, -1);
+        // Desenha (apenas vivos e não explodindo, pois move_object cuida das explosões)
+        for (int i = 0; i < NUM_ALIENS; i++) {
+            if (aliens[i].active && aliens[i].dying_timer == 0) 
+                draw_object(&aliens[i], 1, -1);
+        }
 
         // Tiro Alien
         for (int i = 0; i < NUM_ALIENS; i++) {
-            if (aliens[i].active && (simple_rand() % 100 < 2)) {
+            if (aliens[i].active && aliens[i].dying_timer == 0 && (simple_rand() % 100 < 2)) {
                 for (int b = 0; b < MAX_BOMBS; b++) {
                     if (!bombs[b].active) {
                         init_object(&bombs[b], NULL, NULL, NULL, 3, 5, aliens[i].x + 4, aliens[i].y + 8, 0, 4, 1, 1, 6, 0);
@@ -206,7 +253,10 @@ void update_game(void) {
         }
     }
 
-    // Bombas
+    // Bombas e Explosões de Aliens (move_object agora trata o timer)
+    for (int i = 0; i < NUM_ALIENS; i++) {
+        if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
+    }
     for (int i = 0; i < MAX_BOMBS; i++) move_object(&bombs[i]);
 
     // UFO
@@ -220,45 +270,45 @@ void update_game(void) {
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (detect_collision(&bullet, &aliens[i])) { 
                 score += aliens[i].points;
-                // CORREÇÃO: Apagar antes de desativar
-                draw_object(&aliens[i], 0, BLACK);
-                draw_object(&bullet, 0, BLACK);
                 
+                // INICIO DA ANIMAÇÃO DE EXPLOSÃO
+                draw_object(&bullet, 0, BLACK); // Apaga bala
                 bullet.active = 0;
-                aliens[i].active = 0; 
+                
+                aliens[i].dying_timer = 5; // Configura timer (aprox 100ms)
+                // Não desativa alien ainda, deixa move_object tratar
             }
         }
         if (ufo.active && detect_collision(&bullet, &ufo)) {
              score += ufo.points;
-             // CORREÇÃO: Apagar antes de desativar
-             draw_object(&ufo, 0, BLACK);
-             draw_object(&bullet, 0, BLACK);
              
+             draw_object(&bullet, 0, BLACK);
              bullet.active = 0;
-             ufo.active = 0;
+
+             ufo.dying_timer = 10; // UFO explode por mais tempo
         }
         for (int i=0; i<NUM_SHIELDS; i++) {
              if (shields[i].active && detect_collision(&bullet, &shields[i])) {
-                 // CORREÇÃO: Apagar a bala antes de desativar
                  draw_object(&bullet, 0, BLACK);
                  bullet.active = 0;
              }
         }
     }
 
-    // Game Over
+    // Game Over e Bombas
     for (int b = 0; b < MAX_BOMBS; b++) {
         if (bombs[b].active) {
             if (detect_collision(&bombs[b], &player)) {
-                display_print("GAME OVER", 110, 100, 1, RED);
-                while(1); 
+                // INICIA EXPLOSÃO DO PLAYER
+                draw_object(&bombs[b], 0, BLACK);
+                bombs[b].active = 0;
+                
+                player.dying_timer = 50; // Animação longa de morte
             }
             for (int s = 0; s < NUM_SHIELDS; s++) {
                 if (shields[s].active && detect_collision(&bombs[b], &shields[s])) {
-                    // CORREÇÃO: Apagar escudo e bomba antes de desativar
                     draw_object(&shields[s], 0, BLACK);
                     draw_object(&bombs[b], 0, BLACK);
-                    
                     shields[s].active = 0;
                     bombs[b].active = 0;
                 }
