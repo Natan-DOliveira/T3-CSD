@@ -1,3 +1,12 @@
+/*
+ * Arquivo: sprites.h
+ * Descrição: Banco de dados de sprites (bitmaps).
+ * Os desenhos são baseados na versão original de Arcade:
+ * - Alien 1, 2, 3 (com 2 frames de animação cada)
+ * - Nave do Jogador e Nave Mistério (UFO)
+ * - Explosões e Escudos
+ */
+
 #ifndef SPRITES_H
 #define SPRITES_H
 
