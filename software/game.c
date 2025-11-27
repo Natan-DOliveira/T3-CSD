@@ -13,7 +13,7 @@ struct object_s shields[NUM_SHIELDS];
 struct object_s ufo;
 
 int score = 0;
-int last_score = -1; // Para controlar quando atualizar o texto
+int last_score = -1; 
 int alien_dx = 3;
 int move_timer = 0;
 int move_threshold = 15;
@@ -22,7 +22,12 @@ unsigned int rng_seed = 123;
 #define ROWS 4
 #define COLS 6
 
-// Função auxiliar para converter Inteiro para String (já que não temos sprintf)
+// Posição do Placar (Mudei para a direita para não bater no outro score)
+#define SCORE_X 220
+#define SCORE_Y 5
+
+// --- Funções Auxiliares de Texto (Manuais) ---
+
 void int_to_str(int value, char *str) {
     char temp[10];
     int i = 0;
@@ -33,13 +38,11 @@ void int_to_str(int value, char *str) {
         return;
     }
 
-    // Extrai dígitos ao contrário
     while (value > 0) {
         temp[i++] = (value % 10) + '0';
         value /= 10;
     }
 
-    // Inverte para a string final
     int j = 0;
     while (i > 0) {
         str[j++] = temp[--i];
@@ -47,26 +50,23 @@ void int_to_str(int value, char *str) {
     str[j] = '\0';
 }
 
-// Função para montar o texto do Score manualmente
 void format_score_string(char *buffer, int val) {
-    // Escreve "SCORE: " manualmente
-    char *prefix = "SCORE: ";
+    // Usando "PTS" para ser diferente do outro score que pode estar na tela
+    char *prefix = "PTS: ";
     int i = 0;
     while(prefix[i] != '\0') {
         buffer[i] = prefix[i];
         i++;
     }
-    
-    // Converte o número e anexa
     int_to_str(val, &buffer[i]);
 }
+// ---------------------------------------------
 
 int simple_rand() {
     rng_seed = rng_seed * 1103515245 + 12345;
     return (unsigned int)(rng_seed / 65536) % 32768;
 }
 
-// Lógica de inicialização
 void init_object(struct object_s *obj, char *frame1, char *frame2, char *frame3, int w, int h, int x, int y, int dx, int dy, int spx, int spy, int type, int pts) {
     obj->sprite_frame[0] = frame1;
     obj->sprite_frame[1] = frame2;
@@ -84,7 +84,6 @@ void init_object(struct object_s *obj, char *frame1, char *frame2, char *frame3,
     obj->dying_timer = 0;
 }
 
-// Desenha objeto.
 void draw_object(struct object_s *obj, int chg, int color) {
     if (obj->active) {
         char *spr;
@@ -110,26 +109,18 @@ void draw_object(struct object_s *obj, int chg, int color) {
     }
 }
 
-// Move objeto e gerencia o fim da animação de morte
 void move_object(struct object_s *obj) {
     if (!obj->active) return;
 
-    // Lógica de Morte/Explosão
     if (obj->dying_timer > 0) {
         obj->dying_timer--;
-        
         if (obj->dying_timer == 0) {
-            // FIM DA EXPLOSÃO
             char *exp_spr = (obj->type == 0) ? (char *)explosion_player_spr : (char *)explosion_inv_spr;
             int ew = (obj->type == 0) ? 15 : 13;
             int eh = (obj->type == 0) ? 8 : 7;
-            
-            // Apaga a explosão na posição ATUAL
             draw_sprite(obj->x, obj->y, exp_spr, ew, eh, BLACK);
-            
             obj->active = 0;
         } else {
-            // Redesenha para manter visível (sem animar frames)
             draw_object(obj, 0, -1);
         }
         return; 
@@ -149,15 +140,14 @@ void move_object(struct object_s *obj) {
         moved = 1;
     }
 
-    // Limites de tela
-    if (obj->type == 0) { // Player
+    if (obj->type == 0) { 
         if (obj->x < 5) obj->x = 5;
         if (obj->x > 300 - 15) obj->x = 300 - 15;
-    } else if (obj->type == 4) { // UFO
+    } else if (obj->type == 4) { 
          if (obj->x > 300) obj->active = 0;
-    } else if (obj->type == 5) { // Tiro
+    } else if (obj->type == 5) { 
         if (obj->y < 0) obj->active = 0;
-    } else if (obj->type == 6) { // Bomba
+    } else if (obj->type == 6) { 
         if (obj->y > 218) obj->active = 0;
     }
 
@@ -169,10 +159,8 @@ void move_object(struct object_s *obj) {
     }
 }
 
-// Detecção de colisão AABB
 int detect_collision(struct object_s *obj1, struct object_s *obj2) {
     if (!obj1->active || obj1->dying_timer > 0 || !obj2->active || obj2->dying_timer > 0) return 0;
-    
     return (obj1->x < obj2->x + obj2->w &&
             obj1->x + obj1->w > obj2->x &&
             obj1->y < obj2->y + obj2->h &&
@@ -223,16 +211,17 @@ void init_game(void) {
 }
 
 void update_game(void) {
-    char score_buf[25]; // Buffer manual
+    char score_buf[25];
     
-    // --- SCORE LEGÍVEL (SEM SPRINTF) ---
+    // --- CORREÇÃO DO SCORE ---
     if (score != last_score) {
-        // Limpa a área com espaços pretos
-        display_print("SCORE:         ", 5, 5, 1, BLACK); 
+        // 1. Movemos para a direita (X=220) para fugir do outro score
+        // 2. Desenhamos um retângulo "fake" de espaços pretos para limpar o fundo
+        display_print("PTS:         ", SCORE_X, SCORE_Y, 1, BLACK); 
         
-        // Formata e imprime o novo score
+        // 3. Desenhamos o novo valor
         format_score_string(score_buf, score);
-        display_print(score_buf, 5, 5, 1, WHITE);
+        display_print(score_buf, SCORE_X, SCORE_Y, 1, WHITE);
         
         last_score = score;
     }
@@ -242,7 +231,7 @@ void update_game(void) {
          while(1); 
     }
 
-    // Player Input
+    // Player
     player.dx = 0;
     if (player.dying_timer == 0) {
         if (key_left) player.dx = -2;
@@ -250,14 +239,14 @@ void update_game(void) {
     }
     move_object(&player); 
 
-    // Tiro
+    // Tiro Player
     if (key_fire && !bullet.active && player.dying_timer == 0) {
         init_object(&bullet, NULL, NULL, NULL, 2, 4, player.x + 6, player.y - 4, 0, -5, 1, 1, 5, 0);
         key_fire = 0; 
     }
     move_object(&bullet);
 
-    // Aliens
+    // Aliens e IA
     move_timer++;
     if (move_timer > move_threshold) {
         move_timer = 0;
@@ -272,13 +261,13 @@ void update_game(void) {
             }
         }
         
-        // Apaga rastros
+        // Limpa rastro
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) 
                 draw_object(&aliens[i], 0, BLACK);
         }
 
-        // Movimento
+        // Move
         if (drop) {
             alien_dx = -alien_dx;
             for (int i = 0; i < NUM_ALIENS; i++) {
@@ -291,17 +280,15 @@ void update_game(void) {
             }
         }
         
-        // DIFICULDADE PROGRESSIVA
-        // Quanto menos inimigos, mais eles atiram
-        int fire_chance = 2; // Normal
-        if (active_count < 10) fire_chance = 8;  // Agressivo
-        if (active_count < 4)  fire_chance = 18; // Muito Agressivo (final)
+        // Desenha e IA de Tiro
+        int fire_chance = 2; 
+        if (active_count < 10) fire_chance = 8;  
+        if (active_count < 4)  fire_chance = 18; 
 
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
                 draw_object(&aliens[i], 1, -1);
                 
-                // Tenta atirar
                 if (simple_rand() % 100 < fire_chance) {
                     for (int b = 0; b < MAX_BOMBS; b++) {
                         if (!bombs[b].active) {
@@ -314,7 +301,7 @@ void update_game(void) {
         }
     }
 
-    // Processa animações de explosão (Aliens) e movimento de bombas
+    // Processa Explosões e Bombas
     for (int i = 0; i < NUM_ALIENS; i++) {
         if (aliens[i].dying_timer > 0) move_object(&aliens[i]);
     }
@@ -354,7 +341,7 @@ void update_game(void) {
         }
     }
 
-    // Game Over e Bombas
+    // Game Over
     for (int b = 0; b < MAX_BOMBS; b++) {
         if (bombs[b].active) {
             if (detect_collision(&bombs[b], &player)) {
