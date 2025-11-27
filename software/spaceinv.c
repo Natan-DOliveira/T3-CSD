@@ -35,7 +35,7 @@ int main(void) {
     int show_text = 1;
 
     while (1) {
-        display_print("SPACE INVADERS", 100, 80, 1, GREEN);
+        display_print("MOLODOY INVADERS", 100, 80, 1, GREEN);
 
         blink_timer++;
         if (blink_timer > 300) { 
@@ -44,7 +44,7 @@ int main(void) {
             if (!show_text) display_frectangle(40, 120, 240, 10, BLACK);
         }
 
-        if (show_text) display_print("APERTE ESPACO SE VOCE AMA O MOLODOY. EH MOLODOY OU NAO EH?", 45, 120, 1, WHITE);
+        if (show_text) display_print("APERTE ESPACO PARA COMECAR", 45, 120, 1, WHITE);
 
         check_keyboard();
         if (key_fire) {
