@@ -44,7 +44,7 @@ int main(void) {
             if (!show_text) display_frectangle(40, 120, 240, 10, BLACK);
         }
 
-        if (show_text) display_print("APERTE ESPAÇO PARA COMECAR", 45, 120, 1, WHITE);
+        if (show_text) display_print("APERTE ESPACO PARA COMECAR", 45, 120, 1, WHITE);
 
         check_keyboard();
         if (key_fire) {
@@ -83,7 +83,7 @@ int main(void) {
                 }
                 
                 // Desenha a instrução
-                display_print("APERTE ESPAÇO PARA REINICIAR", 45, 120, 1, WHITE);
+                display_print("APERTE ESPACO PARA REINICIAR", 45, 120, 1, WHITE);
                 
                 // Verifica se quer reiniciar
                 check_keyboard(); // Importante ler o teclado aqui
@@ -121,7 +121,7 @@ int main(void) {
                 display_print("YOU WIN", 120, 100, 1, GREEN);
                 
                 // Se ganhar, também trava e pede reinício (Opcional, mas boa prática)
-                display_print("APERTE ESPAÇO PARA REINICIAR", 45, 120, 1, WHITE);
+                display_print("APERTE ESPACO PARA REINICIAR", 45, 120, 1, WHITE);
                 check_keyboard();
                 if (key_fire) {
                     key_fire = 0;
