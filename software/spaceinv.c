@@ -35,7 +35,7 @@ int main(void) {
     int show_text = 1;
 
     while (1) {
-        display_print("MOLODOY INVADERS", 100, 80, 1, GREEN);
+        display_print("SPACE INVADERS", 100, 80, 1, GREEN);
 
         blink_timer++;
         if (blink_timer > 300) { 
