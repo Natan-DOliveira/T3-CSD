@@ -220,23 +220,28 @@ void update_game(void) {
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (detect_collision(&bullet, &aliens[i])) { 
                 score += aliens[i].points;
-                bullet.active = 0;
-                aliens[i].active = 0; 
+                // CORREÇÃO: Apagar antes de desativar
                 draw_object(&aliens[i], 0, BLACK);
                 draw_object(&bullet, 0, BLACK);
+                
+                bullet.active = 0;
+                aliens[i].active = 0; 
             }
         }
         if (ufo.active && detect_collision(&bullet, &ufo)) {
              score += ufo.points;
-             bullet.active = 0;
-             ufo.active = 0;
+             // CORREÇÃO: Apagar antes de desativar
              draw_object(&ufo, 0, BLACK);
              draw_object(&bullet, 0, BLACK);
+             
+             bullet.active = 0;
+             ufo.active = 0;
         }
         for (int i=0; i<NUM_SHIELDS; i++) {
              if (shields[i].active && detect_collision(&bullet, &shields[i])) {
-                 bullet.active = 0;
+                 // CORREÇÃO: Apagar a bala antes de desativar
                  draw_object(&bullet, 0, BLACK);
+                 bullet.active = 0;
              }
         }
     }
@@ -250,10 +255,12 @@ void update_game(void) {
             }
             for (int s = 0; s < NUM_SHIELDS; s++) {
                 if (shields[s].active && detect_collision(&bombs[b], &shields[s])) {
-                    shields[s].active = 0;
-                    bombs[b].active = 0;
+                    // CORREÇÃO: Apagar escudo e bomba antes de desativar
                     draw_object(&shields[s], 0, BLACK);
                     draw_object(&bombs[b], 0, BLACK);
+                    
+                    shields[s].active = 0;
+                    bombs[b].active = 0;
                 }
             }
         }
