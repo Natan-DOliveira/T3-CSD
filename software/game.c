@@ -1,5 +1,4 @@
 #include <hf-risc.h>
-#include <stdio.h>  // Necessário para sprintf (formatar o score)
 #include "vga_drv.h"
 #include "game.h"
 #include "graphics.h"  
@@ -22,6 +21,45 @@ unsigned int rng_seed = 123;
 
 #define ROWS 4
 #define COLS 6
+
+// Função auxiliar para converter Inteiro para String (já que não temos sprintf)
+void int_to_str(int value, char *str) {
+    char temp[10];
+    int i = 0;
+    
+    if (value == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+
+    // Extrai dígitos ao contrário
+    while (value > 0) {
+        temp[i++] = (value % 10) + '0';
+        value /= 10;
+    }
+
+    // Inverte para a string final
+    int j = 0;
+    while (i > 0) {
+        str[j++] = temp[--i];
+    }
+    str[j] = '\0';
+}
+
+// Função para montar o texto do Score manualmente
+void format_score_string(char *buffer, int val) {
+    // Escreve "SCORE: " manualmente
+    char *prefix = "SCORE: ";
+    int i = 0;
+    while(prefix[i] != '\0') {
+        buffer[i] = prefix[i];
+        i++;
+    }
+    
+    // Converte o número e anexa
+    int_to_str(val, &buffer[i]);
+}
 
 int simple_rand() {
     rng_seed = rng_seed * 1103515245 + 12345;
@@ -181,20 +219,19 @@ void init_game(void) {
     init_object(&ufo, (char *)ufo_spr, NULL, NULL, 16, 7, -16, 10, 2, 0, 1, 1, 4, 100);
     ufo.active = 0;
     score = 0;
-    last_score = -1; // Força redesenho do score
+    last_score = -1; 
 }
 
 void update_game(void) {
-    char score_buf[20];
+    char score_buf[25]; // Buffer manual
     
-    // --- CORREÇÃO 1: Score Legível ---
+    // --- SCORE LEGÍVEL (SEM SPRINTF) ---
     if (score != last_score) {
-        // Passo A: Limpa a área do score pintando um texto de espaços em preto
-        // Ajuste o número de espaços se seu score ficar muito grande
-        display_print("SCORE:       ", 5, 5, 1, BLACK); 
+        // Limpa a área com espaços pretos
+        display_print("SCORE:         ", 5, 5, 1, BLACK); 
         
-        // Passo B: Escreve o novo score em branco
-        sprintf(score_buf, "SCORE: %d", score);
+        // Formata e imprime o novo score
+        format_score_string(score_buf, score);
         display_print(score_buf, 5, 5, 1, WHITE);
         
         last_score = score;
@@ -220,18 +257,16 @@ void update_game(void) {
     }
     move_object(&bullet);
 
-    // Aliens (Movimento em Grupo e IA de Tiro)
+    // Aliens
     move_timer++;
     if (move_timer > move_threshold) {
         move_timer = 0;
         int drop = 0;
         
-        // Conta quantos inimigos estão vivos para ajustar dificuldade
         int active_count = 0;
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
                 active_count++;
-                // Verifica limites laterais
                 if ((alien_dx > 0 && aliens[i].x > SCREEN_W - 20) || 
                     (alien_dx < 0 && aliens[i].x < 5)) drop = 1;
             }
@@ -256,14 +291,11 @@ void update_game(void) {
             }
         }
         
-        // Desenha e Lógica de Tiro
-        
-        // --- CORREÇÃO 2: Dificuldade Progressiva ---
-        // Quanto menos aliens, maior a chance de cada um atirar.
-        int fire_chance = 2; // Padrão: 2%
-        if (active_count < 10) fire_chance = 6;  // Fica mais agressivo
-        if (active_count < 3)  fire_chance = 15; // Muito agressivo no final
-        // -------------------------------------------
+        // DIFICULDADE PROGRESSIVA
+        // Quanto menos inimigos, mais eles atiram
+        int fire_chance = 2; // Normal
+        if (active_count < 10) fire_chance = 8;  // Agressivo
+        if (active_count < 4)  fire_chance = 18; // Muito Agressivo (final)
 
         for (int i = 0; i < NUM_ALIENS; i++) {
             if (aliens[i].active && aliens[i].dying_timer == 0) {
