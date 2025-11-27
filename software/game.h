@@ -1,3 +1,8 @@
+/*
+ * Arquivo: game.h
+ * Descrição: Declarações globais e constantes do jogo Space Invaders.
+ */
+
 #ifndef GAME_H
 #define GAME_H
 
