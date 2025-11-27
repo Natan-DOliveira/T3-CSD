@@ -1,51 +1,53 @@
+/*
+ * Arquivo: keyboard.c
+ * Descrição: Driver de teclado PS/2 via AXI bus.
+ * Responsável por interpretar scancodes e gerenciar estados das teclas.
+ */
+
 #include <hf-risc.h>
 #include "keyboard.h"
 
-// Alocação real das variáveis globais
+// Variáveis globais de estado das teclas (1 = Pressionado, 0 = Solto)
 int key_left = 0;
 int key_right = 0;
 int key_fire = 0;
 int key_break = 0;
 
 void check_keyboard(void) {
-    // 1. Verificação Rápida: Tem dado novo? (Bit 1 = VALID)
+    // 1. Verificação de Status: O bit 1 (STVALID) indica se há dado novo no buffer
     if (!(KEYBOARD_AXI_STATUS & KEYBOARD_AXI_STVALID)) return;
 
-    // 2. Lê o dado imediatamente
+    // 2. Leitura do Scancode (SDATA)
     uint8_t sc = KEYBOARD_AXI_SDATA;
 
-    // Debug (Pode comentar para limpar o terminal)
-    // printf("Scan: %x\n", sc); 
-
-    // 3. Processamento do Break Code (F0)
+    // 3. Tratamento de Break Code (0xF0)
+    // O protocolo PS/2 envia F0 antes de enviar a tecla que foi solta.
     if (sc == 0xF0) {
-        // Espera pelo próximo byte (código da tecla solta)
-        // Timeout generoso para garantir captura (~10ms)
+        // Precisamos esperar o próximo byte para saber QUAL tecla foi solta.
+        // Implementamos um timeout para evitar que o processador trave se o hardware falhar.
         int timeout = 500000; 
         
         while (!(KEYBOARD_AXI_STATUS & KEYBOARD_AXI_STVALID) && timeout--) ;
         
         if (timeout > 0) {
             uint8_t next_sc = KEYBOARD_AXI_SDATA;
-            // printf("Rel: %x\n", next_sc); // Debug
             
-            // Atualiza estado específico
+            // Zera a flag da tecla correspondente
             if (next_sc == SCAN_A || next_sc == SCAN_LEFT) key_left = 0;
             else if (next_sc == SCAN_D || next_sc == SCAN_RIGHT) key_right = 0;
             else if (next_sc == SCAN_SPACE) key_fire = 0;
         } else {
-            // [CORREÇÃO CRÍTICA]
-            // Se deu timeout aqui, significa que o hardware perdeu o código da tecla.
-            // Para evitar que o boneco ande sozinho para sempre, resetamos tudo.
-            // É melhor parar de andar do que bater na parede.
+            // [ROBUSTEZ] Timeout ocorreu: Perdemos o código da tecla solta.
+            // Por segurança, paramos todo movimento para o boneco não "enganchar".
             key_left = 0;
             key_right = 0;
             key_fire = 0;
         }
         key_break = 0; 
     }
+    // 4. Tratamento de Make Code (Tecla Pressionada)
+    // Ignora 0xE0 (prefixo de teclas estendidas)
     else if (sc != 0xE0) { 
-        // Processamento de Press
         if (sc == SCAN_A || sc == SCAN_LEFT) key_left = 1;
         else if (sc == SCAN_D || sc == SCAN_RIGHT) key_right = 1;
         else if (sc == SCAN_SPACE) key_fire = 1;
