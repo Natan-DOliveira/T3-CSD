@@ -4,7 +4,6 @@
 #include "keyboard.h"
 
 // Função manual para converter int para string (substitui sprintf)
-// Necessário pois stdio.h não está disponível
 void int_to_str_main(int value, char *str) {
     char temp[16];
     int i = 0;
@@ -40,12 +39,13 @@ int main(void) {
         if (score != last_score) {
             char score_str[32];
             
-            // 1. LIMPEZA: Escreve "Score:       " em PRETO para apagar o número anterior
-            // Isso evita que o novo número seja escrito por cima do velho
-            display_print("Score:        ", 10, 5, 1, BLACK);
+            // --- CORREÇÃO DEFINITIVA DO SCORE ---
+            // Em vez de imprimir espaços, desenhamos um retângulo preto sólido.
+            // Posição (10, 5), Largura 100 pixels, Altura 10 pixels.
+            // Isso garante que QUALQUER coisa escrita antes seja apagada.
+            display_frectangle(10, 5, 100, 10, BLACK);
 
-            // 2. FORMATAÇÃO MANUAL: Constrói a string "Score: <numero>"
-            // Copia o prefixo manualmente
+            // Monta a string "Score: <numero>"
             char *prefix = "Score: ";
             int k = 0;
             while(prefix[k] != '\0') {
@@ -56,7 +56,7 @@ int main(void) {
             // Converte o número e anexa
             int_to_str_main(score, &score_str[k]);
 
-            // 3. DESENHO: Escreve o novo score em BRANCO
+            // Escreve o novo score limpo em BRANCO
             display_print(score_str, 10, 5, 1, WHITE);
             
             last_score = score;
@@ -69,6 +69,8 @@ int main(void) {
         }
         
         if (aliens_alive == 0) {
+            // Limpa um espaço para a mensagem de vitória também
+            display_frectangle(110, 95, 80, 20, BLACK);
             display_print("YOU WIN", 120, 100, 1, GREEN);
             while(1);
         }
